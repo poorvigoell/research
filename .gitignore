@@ -1,0 +1,32 @@
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Raw/Large benchmark datasets (avoid pushing gigabytes to GitHub)
+data/dgraphfin/
+data/yelpchi/
+data/amazon/
+*.mat
+*.npz
+*.zip
+*.tar.gz
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs and scratch files
+*.log
+.gemini/

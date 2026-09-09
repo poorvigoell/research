@@ -1,0 +1,37 @@
+# ACO-GNN Experiment Configuration
+experiment:
+  name: "aco_gnn_financial_fraud"
+  seed: 42
+  device: "cpu"
+
+dataset:
+  name: "synthetic_lending" # Options: dgraphfin, yelpchi, synthetic_lending
+  num_applicants: 3000
+  fraud_ratio: 0.05
+  num_timesteps: 50
+  camouflage_ratio: 0.15 # 15% camouflage noise for default runs
+
+aco:
+  alpha: 1.0        # Pheromone sensitivity
+  beta: 1.0         # Heuristic desirability sensitivity
+  rho: 0.05         # Evaporation rate per epoch
+  q: 1.0            # Base pheromone deposit
+  temperature: 1.0  # Softmax temperature for local neighborhood normalization
+  tau_min: 0.01
+  tau_max: 10.0
+
+model:
+  hidden_channels: 64
+  out_channels: 2
+  num_layers: 2
+  lambda_blend: 0.5 # 0.5 attention + 0.5 pheromone
+  dropout: 0.3
+
+training:
+  epochs: 40
+  lr: 0.005
+  weight_decay: 0.0001
+  patience: 15
+  loss_type: "focal"
+  focal_alpha: 0.75
+  focal_gamma: 2.0
