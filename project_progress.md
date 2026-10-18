@@ -23,10 +23,10 @@ Welcome to the ACO-GNN research repository! This file tracks the exact progress,
 ## 📊 Stage-by-Stage Progress Overview
 
 ```
-[██████████] Stage 1: Environment & Synthetic Data Pipeline (100% Core Working)
-[████░░░░░░] Stage 2: Baselines Suite (40% Complete - MLP, GCN, GAT Done; Tree & Fraud SOTA Left)
+[██████████] Stage 1: Environment & Synthetic Data Pipeline (100% Complete)
+[████████░░] Stage 2: Baselines Suite (80% Complete - MLP, GCN, GAT, GraphSAGE, XGBoost, LightGBM Done; Fraud SOTA Stretch)
 [█████████░] Stage 3: ACO-GNN Core Architecture (90% Complete - Model, Scatter Softmax, Checkpoint Done)
-[██████░░░░] Stage 4: Empirical Evaluation & Ablations (60% Complete - Synthetic Stress & Ablations Done; Real Data Left)
+[██████░░░░] Stage 4: Empirical Evaluation & Ablations (60% - Multi-seed & Visualization Code Ready; Real Data Runs Left)
 [██░░░░░░░░] Stage 5: Paper Manuscript Preparation (20% Complete - Figures & Plan Ready; LaTeX Manuscript Left)
 ```
 
@@ -53,11 +53,12 @@ Welcome to the ACO-GNN research repository! This file tracks the exact progress,
   - [x] Tabular MLP Baseline (node features only, no graph).
   - [x] Standard 2-layer GCN with degree normalization & self-loops.
   - [x] Vectorized GAT with numerically stable scatter softmax.
-- [ ] Tree-based Baselines:
-  - [ ] XGBoost (features + graph centrality metrics).
-  - [ ] LightGBM.
-- [ ] Advanced Graph Baselines:
-  - [ ] GraphSAGE (`mean` and `max` aggregation).
+- [x] Tree-based Baselines (`src/models/tree_baselines.py`):
+  - [x] XGBoost (features + degree + PageRank + neighbor fraud ratio + 2-hop reach).
+  - [x] LightGBM (same graph-enriched feature set).
+- [x] GraphSAGE Baseline (`src/models/baselines.py`):
+  - [x] Pure PyTorch GraphSAGE with mean/max aggregation and L2 normalization.
+- [ ] Fraud-Specific SOTA Baselines (stretch goal):
   - [ ] CARE-GNN (RL-based neighbor filtering baseline, KDD 2020).
   - [ ] BWGNN (Spectral band-pass GNN baseline, ICDM 2021).
   - [ ] H2-FDetector (Heterophilic fraud GNN, WWW 2022).
@@ -96,9 +97,11 @@ Welcome to the ACO-GNN research repository! This file tracks the exact progress,
   - [x] No Evaporation (rho=0): 0.8679 F1
   - [x] Full Proposed ACO-GNN: 0.8519 F1 (highest PR-AUC 0.9179, AUC-ROC 0.9925).
   - [x] Publication-quality 300 DPI plot: `paper/figures/ablation_study.pdf` and `.png`.
-- [ ] Multi-seed variance runs (5 random seeds with Mean +/- Std).
-- [ ] Latent space t-SNE visualization of node embeddings.
-- [ ] Pheromone trail heatmap across fraud rings vs camouflage edges.
+- [x] Multi-seed variance runner implemented (`main.py --task multi_seed`, 5 seeds, Mean +/- Std). Awaiting execution.
+- [x] t-SNE visualization and embedding extraction code implemented (`src/utils/plotting.py`). Awaiting execution.
+- [x] Pheromone trail heatmap code implemented (`src/utils/plotting.py`). Awaiting execution.
+- [ ] Execute multi-seed runs on synthetic, DGraphFin, and YelpChi datasets.
+- [ ] Generate t-SNE and pheromone heatmap figures for paper.
 
 ### Stage 5: Paper Manuscript & Deliverables
 - [x] Research proposal synchronized with modern 2022-2025 literature.
@@ -126,16 +129,29 @@ python main.py --task train_aco_gnn --epochs 25
 # 4. Run Baseline Models (MLP, GCN, GAT)
 python main.py --task run_baselines --epochs 25
 
-# 5. Run Camouflage Stress Test (0% to 50% Noise)
+# 5. Run Tree Baselines (XGBoost + LightGBM with graph features)
+python main.py --task run_tree_baselines --dataset synthetic
+
+# 6. Run Camouflage Stress Test (0% to 50% Noise)
 python main.py --task camouflage_experiment --epochs 25
 
-# 6. Run Component Ablation Study
+# 7. Run Component Ablation Study
 python main.py --task ablation_study --epochs 25
+
+# 8. Multi-Seed Benchmark (5 seeds, all models, Mean +/- Std)
+python main.py --task multi_seed --epochs 25 --dataset synthetic
+
+# 9. Run on Real-World DGraphFin (requires torch-geometric)
+python main.py --task multi_seed --epochs 30 --dataset dgraphfin
+
+# 10. Run on YelpChi Cross-Domain Benchmark
+python main.py --task multi_seed --epochs 30 --dataset yelpchi
 ```
 
 ---
 
 ## 🎯 Next Priority Work Items
-1. **Teammate A:** Implement `XGBoost` & `LightGBM` in `src/models/baselines.py` for tabular comparison.
-2. **Teammate B:** Set up the PyG `DGraphFin` dataset download script in `src/data/dataset_loader.py`.
-3. **Teammate C:** Draft Section 3 (Methodology) and Section 4 (Experiments) in the LaTeX paper template.
+1. **Execute multi-seed runs** on synthetic dataset and collect Mean +/- Std tables.
+2. **Download and run DGraphFin** experiments for real-world industrial-scale results.
+3. **Generate t-SNE and pheromone heatmap** figures after training ACO-GNN.
+4. **Draft LaTeX manuscript** in IEEE double-column format with all results and figures.

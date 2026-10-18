@@ -218,14 +218,124 @@ def task_ablation_study(args):
     )
 
 
+def load_dataset(args):
+    if args.dataset == 'synthetic':
+        return load_synthetic_lending(num_applicants=args.num_nodes, fraud_ratio=args.fraud_ratio, camouflage_ratio=args.camouflage_ratio)
+    elif args.dataset == 'dgraphfin':
+        from src.data.dataset_loader import load_dgraphfin
+        return load_dgraphfin()
+    elif args.dataset == 'yelpchi':
+        from src.data.dataset_loader import load_yelpchi
+        return load_yelpchi()
+
+
+def task_multi_seed(args):
+    """Run all models across multiple seeds, report Mean +/- Std for statistical rigor."""
+    seeds = [42, 123, 456, 789, 1024]
+    all_results = {}  # model_name -> {metric_name -> [values across seeds]}
+    
+    for seed in seeds:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        
+        data = load_dataset(args)
+        in_dim = data['x'].shape[1]
+        num_nodes = data['num_nodes']
+        num_relations = data['num_relations']
+        
+        models = {
+            'MLP': MLPBaseline(in_channels=in_dim, hidden_channels=64),
+            'GCN': GCNBaseline(in_channels=in_dim, hidden_channels=64),
+            'GAT': GATBaseline(in_channels=in_dim, hidden_channels=64),
+        }
+        
+        # Add GraphSAGE if available
+        try:
+            from src.models.baselines import GraphSAGEBaseline
+            models['GraphSAGE'] = GraphSAGEBaseline(in_channels=in_dim, hidden_channels=64)
+        except ImportError:
+            pass
+        
+        # ACO-GNN
+        aco_engine = VectorizedACOEngine(num_nodes=num_nodes, num_relations=num_relations)
+        models['ACO-GNN'] = ACORingGNN(in_channels=in_dim, hidden_channels=64, num_relations=num_relations)
+        
+        for name, model in models.items():
+            aco = aco_engine if name == 'ACO-GNN' else None
+            # Reset ACO engine for each model
+            if name == 'ACO-GNN':
+                aco = VectorizedACOEngine(num_nodes=num_nodes, num_relations=num_relations)
+            
+            res = train_and_evaluate(model=model, data=data, aco_engine=aco, epochs=args.epochs, model_name=f"{name}_seed{seed}")
+            
+            if name not in all_results:
+                all_results[name] = {'illicit_f1': [], 'pr_auc': [], 'auc_roc': [], 'macro_f1': []}
+            for metric in ['illicit_f1', 'pr_auc', 'auc_roc', 'macro_f1']:
+                all_results[name][metric].append(res['test_metrics'].get(metric, 0.0))
+    
+    # Print summary table
+    print('\n' + '=' * 80)
+    print('MULTI-SEED RESULTS (Mean +/- Std across 5 seeds)')
+    print('=' * 80)
+    print(f"{'Model':<20} {'Illicit-F1':<20} {'PR-AUC':<20} {'AUC-ROC':<20}")
+    print('-' * 80)
+    for name, metrics in all_results.items():
+        f1 = np.array(metrics['illicit_f1'])
+        pr = np.array(metrics['pr_auc'])
+        roc = np.array(metrics['auc_roc'])
+        print(f"{name:<20} {f1.mean():.4f} +/- {f1.std():.4f}  {pr.mean():.4f} +/- {pr.std():.4f}  {roc.mean():.4f} +/- {roc.std():.4f}")
+    
+    # Save results
+    os.makedirs('./experiments/results', exist_ok=True)
+    save_data = {}
+    for name, metrics in all_results.items():
+        save_data[name] = {}
+        for m, vals in metrics.items():
+            save_data[name][f'{m}_mean'] = float(np.mean(vals))
+            save_data[name][f'{m}_std'] = float(np.std(vals))
+            save_data[name][f'{m}_values'] = vals
+    
+    with open(f'./experiments/results/multi_seed_{args.dataset}.json', 'w') as f:
+        json.dump(save_data, f, indent=2)
+
+
+def task_run_tree_baselines(args):
+    from src.models.tree_baselines import train_xgboost, train_lightgbm
+    data = load_dataset(args)
+    
+    print('\n=== Running Tree-Based Baselines ===')
+    xgb_results = train_xgboost(data)
+    lgb_results = train_lightgbm(data)
+    
+    results = {'XGBoost': xgb_results, 'LightGBM': lgb_results}
+    os.makedirs('./experiments/results', exist_ok=True)
+    with open(f'./experiments/results/tree_baselines_{args.dataset}.json', 'w') as f:
+        json.dump(results, f, indent=2)
+
+
 def main():
     parser = argparse.ArgumentParser(description="ACO-GNN Fraud Detection Research Suite")
     parser.add_argument(
         "--task",
         type=str,
         default="test_data",
-        choices=["test_data", "run_baselines", "train_aco_gnn", "camouflage_experiment", "ablation_study"],
+        choices=[
+            "test_data",
+            "run_baselines",
+            "train_aco_gnn",
+            "camouflage_experiment",
+            "ablation_study",
+            "multi_seed",
+            "run_tree_baselines",
+        ],
         help="Task to run",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="synthetic",
+        choices=["synthetic", "dgraphfin", "yelpchi"],
+        help="Dataset to use (synthetic, dgraphfin, yelpchi)",
     )
     parser.add_argument("--num_nodes", type=int, default=3000, help="Number of applicant nodes")
     parser.add_argument("--fraud_ratio", type=float, default=0.05, help="Fraud ratio (default 5%)")
@@ -243,6 +353,10 @@ def main():
         task_camouflage_experiment(args)
     elif args.task == "ablation_study":
         task_ablation_study(args)
+    elif args.task == "multi_seed":
+        task_multi_seed(args)
+    elif args.task == "run_tree_baselines":
+        task_run_tree_baselines(args)
 
 
 if __name__ == "__main__":
